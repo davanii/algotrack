@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlgoTrack — Map</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
+<link rel="stylesheet" href="./map.css" />
+
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans overflow-hidden">
+
+<!-- ============ TOPBAR ============ -->
+<header class="fixed top-0 left-0 right-0 z-[1100] h-16 bg-white/95 backdrop-blur border-b border-slate-200 flex items-center gap-4 px-4 md:px-6">
+  <div class="flex items-center gap-2 shrink-0">
+    <img src="./img/logo.png" alt="Logo AlgoTrack"
+         class="w-9 h-9 rounded-md object-contain bg-white border border-slate-200 shadow-sm" />
+    <h1 class="text-slate-900 font-bold text-lg tracking-tight whitespace-nowrap">Algo<span class="text-emerald-500">Track</span></h1>
+  </div>
+
+  <div class="flex-1 flex items-center gap-3 flex-wrap md:flex-nowrap min-w-0">
+    <div class="relative flex-1 min-w-[240px] max-w-md" id="searchWrap">
+      <input id="searchInput" type="text" placeholder="Rechercher un site ou un secteur..." autocomplete="off"
+        class="w-full bg-slate-50 border border-slate-300 rounded-lg py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 focus:border-emerald-500 transition" />
+      <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+      </svg>
+      <div id="searchResults" class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-[1200] overflow-hidden max-h-72 overflow-y-auto"></div>
+    </div>
+
+    <select id="sgrFilter" class="bg-slate-50 border border-slate-300 rounded-lg py-2 px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/60">
+      <option value="all">SGR : Tous</option>
+      <option value="positive">SGR : Positif</option>
+      <option value="negative">SGR : Négatif</option>
+    </select>
+  </div>
+
+  <!-- SPACER : pousse tout ce qui suit vers la droite -->
+  <div class="flex-1"></div>
+
+  <a href="./dashboard.html"
+     class="hidden md:flex items-center text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-700 hover:bg-emerald-100 transition shrink-0">📊 Dashboard</a>
+
+  <div id="statusBadge" class="hidden md:flex items-center gap-1.5 text-xs text-slate-500 shrink-0">
+    <span id="statusDot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+    <span id="statusText">Chargement…</span>
+  </div>
+</header>
+
+<!-- ============ MAP ============ -->
+<div id="map" class="pt-16"></div>
+
+<!-- ============ LEGEND ============ -->
+<div class="fixed bottom-6 left-6 z-[1000] bg-white/95 backdrop-blur border border-slate-200 rounded-xl p-3.5 text-xs text-slate-600 shadow-xl w-60">
+  <p class="font-semibold text-slate-900 mb-2 tracking-wide">SGR moyen (%/jour)</p>
+  <div class="space-y-1.5">
+    <div class="flex items-center gap-2"><span class="inline-block min-w-[56px] text-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-700 text-white">&gt; 4</span> Forte croissance</div>
+    <div class="flex items-center gap-2"><span class="inline-block min-w-[56px] text-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-500 text-white">2 → 4</span> Bonne croissance</div>
+    <div class="flex items-center gap-2"><span class="inline-block min-w-[56px] text-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-200 text-slate-900">0 → 2</span> Croissance faible</div>
+    <div class="flex items-center gap-2"><span class="inline-block min-w-[56px] text-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500 text-white">−2 → 0</span> Perte modérée</div>
+    <div class="flex items-center gap-2"><span class="inline-block min-w-[56px] text-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-700 text-white">&lt; −2</span> Perte sévère</div>
+    <div class="flex items-center gap-2"><span class="inline-block min-w-[56px] text-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-400 text-slate-900">*</span> En attente...</div>
+  </div>
+  <p class="text-[10px] text-slate-400 italic mt-2 pt-2 border-t border-slate-200">Designed by <a href="https://www.linkedin.com/in/elton-razafindramaro" target="_blank" rel="noopener noreferrer">Elton Razafindramaro</a></p>
+</div>
+
+<!-- ============ WATERMARK LOGO ============ -->
+
+<div id="mapWatermark" class="fixed bottom-14 right-6 z-[1000] flex items-center gap-3 opacity-80 pointer-events-none select-none">
+  <img src="./img/logo1.png" alt=""
+       class="w-20 h-20 object-contain drop-shadow" />
+</div>
+
+<!-- ============ SIDEBAR ============ -->
+<aside id="sidebar"
+  class="fixed top-16 right-0 bottom-0 w-full sm:w-[420px] bg-white border-l border-slate-200 shadow-2xl z-[1050] translate-x-full transition-transform duration-300 ease-out flex flex-col">
+  <div class="p-5 border-b border-slate-200 shrink-0">
+    <div class="flex items-start justify-between gap-2">
+      <h2 id="sbTitle" class="text-xl font-bold text-slate-900 leading-tight">—</h2>
+      <button id="closeSidebar" class="text-slate-400 hover:text-slate-700 transition p-1 -mt-1 -mr-1">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <p id="sbTehakeSecteur" class="text-sm text-slate-500 mt-1.5"></p>
+    <p id="sbTche" class="text-sm text-slate-500"></p>
+    <div class="mt-4 flex items-center gap-2 flex-wrap">
+      <span id="sbSgrLabel" class="text-xs uppercase tracking-wide text-slate-500">SGR moyen du site</span>
+      <span id="sbSgrBadge" class="text-sm font-bold px-2.5 py-1 rounded-full">—</span>
+    </div>
+    <div id="sbVarBadges" class="mt-2 flex items-center gap-1.5 flex-wrap"></div>
+    <div id="sbZoneFilter" class="mt-2"></div>
+  </div>
+  <div id="sbBody" class="flex-1 overflow-y-auto sidebar-scroll p-5 space-y-4"></div>
+</aside>
+
+<div id="sidebarOverlay" class="fixed inset-0 bg-black/30 z-[1040] hidden sm:hidden"></div>
+
+<script>
+  
+// ========================================================================
+// CONFIGURATION 
+// ========================================================================
+const CONFIG = {
+  API_URL: "https://script.google.com/macros/s/AKfycbxjicLgGOmuJ4RHeTh37GkJgrO62rBPwcKy7iWTms7gU-_BAtUYOX-AFg4nJ3jQOEz0Fw/exec",
+  MAP_CENTER: [-23.38, 43.69],
+  MAP_ZOOM: 12,
+  MAP_BOUNDS_PADDING: [60, 60],
+  REFRESH_MS: 5 * 60 * 1000,
+  ZOOM_SITE: 14,
+  TILE_URL: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  TILE_ATTR: "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics"
+  
+};
+
+const SELECTORS = {
+  map: "#map", sidebar: "#sidebar", sidebarOverlay: "#sidebarOverlay",
+  sidebarBody: "#sbBody", sidebarTitle: "#sbTitle", sidebarTehake: "#sbTehakeSecteur",
+  sidebarTche: "#sbTche", sidebarBadge: "#sbSgrBadge", sidebarSgrLabel: "#sbSgrLabel",
+  sidebarVarBadges: "#sbVarBadges", sidebarZoneFilter: "#sbZoneFilter",
+  closeSidebarBtn: "#closeSidebar",
+  searchInput: "#searchInput", searchResults: "#searchResults",
+  sgrFilter: "#sgrFilter",
+  statusBadge: "#statusBadge", statusDot: "#statusDot", statusText: "#statusText"
+};
+
+// ========================================================================
+// RÈGLE DES COULEURS 
+// ========================================================================
+const COLORS = {
+  pending:  { hex: "#94a3b8", tw: "bg-slate-400",  text: "text-slate-500", txt: "#0f172a" },
+  severe:   { hex: "#b91c1c", tw: "bg-red-700",    text: "text-red-700",   txt: "#ffffff" },
+  moderate: { hex: "#ef4444", tw: "bg-red-500",    text: "text-red-600",   txt: "#ffffff" },
+  low:      { hex: "#bbf7d0", tw: "bg-green-200",  text: "text-green-700", txt: "#0f172a" },
+  good:     { hex: "#22c55e", tw: "bg-green-500",  text: "text-green-600", txt: "#ffffff" },
+  strong:   { hex: "#15803d", tw: "bg-green-700",  text: "text-green-700", txt: "#ffffff" }
+};
+
+function statutKey(v) {
+  if (v === null || v === undefined || isNaN(v)) return "pending";
+  if (v > 4)   return "strong";
+  if (v >= 2)  return "good";
+  if (v >= 0)  return "low";
+  if (v >= -2) return "moderate";
+  return "severe";
+}
+
+// ========================================================================
+// ETAT GLOBAL
+// ========================================================================
+const STATE = {
+  map: null, markersLayerGroup: null, markers: {},
+  sitesData: {}, geoJsonPoints: null, hasInitialFit: false,
+  searchItems: [], searchActive: 0,
+  panelZone: null, currentSiteId: null
+};
+
+// ========================================================================
+// DONNEES FICTIVES - Ces données seront affichées si la connexion n'est pas établie
+// ========================================================================
+const MOCK_GEOJSON = {
+  type: "FeatureCollection",
+  features: [
+    { type: "Feature", geometry: { type: "Point", coordinates: [43.7600, -23.3100] }, properties: {
+      site_id: "TAM", code_site: "TAM", site_nom: "Tambalang Nord", secteur: "BTL", tche: "Tovondrana Ariside", tehake: "THK5",
+      rows: [
+        { ligne_test: "LT 1 (Tehake THK5)", pesage: "P0", date_pesage: "02/08/2025", duree: "",  txcr_calc: "*",     nb: 30, variete: "Spinosum", zone: "Ambolimbake" },
+        { ligne_test: "LT 1 (Tehake THK5)", pesage: "P1", date_pesage: "17/08/2025", duree: "15", txcr_calc: "+5.10", nb: 30, variete: "Spinosum", zone: "Ambolimbake" },
+        { ligne_test: "LT 1 (Tehake THK5)", pesage: "P2", date_pesage: "01/09/2025", duree: "30", txcr_calc: "+4.86", nb: 30, variete: "Spinosum", zone: "Ambolimbake" }
+      ] } },
+    { type: "Feature", geometry: { type: "Point", coordinates: [43.6890, -23.3540] }, properties: {
+      site_id: "BLM", code_site: "BLM", site_nom: "Ambolimoke", secteur: "ADK", tche: "Hajatiana Arstide", tehake: "THK5",
+      rows: [
+        { ligne_test: "LT 1 (Tehake THK5)", pesage: "P0", date_pesage: "01/08/2025", duree: "",  txcr_calc: "*",     nb: 30, variete: "Spinosum", zone: "Bepoasa" },
+        { ligne_test: "LT 1 (Tehake THK5)", pesage: "P1", date_pesage: "16/08/2025", duree: "15", txcr_calc: "+2.62", nb: 30, variete: "Spinosum", zone: "Bepoasa" },
+        { ligne_test: "LT 1 (Tehake THK5)", pesage: "P2", date_pesage: "31/08/2025", duree: "30", txcr_calc: "+2.30", nb: 29, variete: "Spinosum", zone: "Bepoasa" },
+        { ligne_test: "LT 2 (Tehake THK5)", pesage: "P0", date_pesage: "01/08/2025", duree: "",  txcr_calc: "*",     nb: 30, variete: "Tambalang (Cottonii)", zone: "Ambolimbake" },
+        { ligne_test: "LT 2 (Tehake THK5)", pesage: "P1", date_pesage: "16/08/2025", duree: "15", txcr_calc: "+1.98", nb: 30, variete: "Tambalang (Cottonii)", zone: "Ambolimbake" }
+      ] } },
+    { type: "Feature", geometry: { type: "Point", coordinates: [43.6550, -23.4020] }, properties: {
+      site_id: "BVK", code_site: "BVK", site_nom: "Belavenoky", secteur: "BDA", tche: "Franco", tehake: "THK5",
+      rows: [
+        { ligne_test: "LT 1 (Tehake THK5)", pesage: "P0", date_pesage: "05/08/2025", duree: "",  txcr_calc: "*",    nb: 30, variete: "Sacol (Cottonii)", zone: "Beppa" },
+        { ligne_test: "LT 1 (Tehake THK5)", pesage: "P1", date_pesage: "20/08/2025", duree: "15", txcr_calc: "+0.45", nb: 30, variete: "Sacol (Cottonii)", zone: "Beppa" }
+      ] } },
+    { type: "Feature", geometry: { type: "Point", coordinates: [43.6720, -23.3810] }, properties: {
+      site_id: "APL", code_site: "APL", site_nom: "Ampasilava", secteur: "ADK", tche: "Bonhôte", tehake: "THK5",
+      rows: [
+        { ligne_test: "LT 1 (Tehake THK5)", pesage: "P0", date_pesage: "03/08/2025", duree: "",  txcr_calc: "*",     nb: 30, variete: "Spinosum", zone: "Ambalaza" },
+        { ligne_test: "LT 1 (Tehake THK5)", pesage: "P1", date_pesage: "18/08/2025", duree: "15", txcr_calc: "-0.42", nb: 29, variete: "Spinosum", zone: "Ambalaza" },
+        { ligne_test: "LT 1 (Tehake THK5)", pesage: "P2", date_pesage: "02/09/2025", duree: "30", txcr_calc: "-0.30", nb: 29, variete: "Spinosum", zone: "Ambalaza" }
+      ] } },
+    { type: "Feature", geometry: { type: "Point", coordinates: [43.7180, -23.3900] }, properties: {
+      site_id: "TSM", code_site: "TSM", site_nom: "Antsatsamoroy", secteur: "MKN", tche: "Sandrine", tehake: "THK5",
+      rows: [
+        { ligne_test: "LT 1 (Tehake THK5)", pesage: "P0", date_pesage: "03/08/2025", duree: "",  txcr_calc: "*",     nb: 30, variete: "Spinosum", zone: "Mitata" },
+        { ligne_test: "LT 1 (Tehake THK5)", pesage: "P1", date_pesage: "18/08/2025", duree: "15", txcr_calc: "-2.40", nb: 28, variete: "Spinosum", zone: "Mitata" },
+        { ligne_test: "LT 1 (Tehake THK5)", pesage: "P2", date_pesage: "02/09/2025", duree: "30", txcr_calc: "-2.10", nb: 27, variete: "Spinosum", zone: "Mitata" }
+      ] } },
+    { type: "Feature", geometry: { type: "Point", coordinates: [43.7010, -23.3650] }, properties: {
+      site_id: "TSG", code_site: "TSG", site_nom: "Tserananangy", secteur: "MKN", tche: "TOVO Irène Julie", tehake: "THK5",
+      rows: [
+        { ligne_test: "LT 1 (Tehake THK5)", pesage: "P0", date_pesage: "07/08/2025", duree: "", txcr_calc: "*", nb: 30, variete: "Spinosum", zone: "Betsiboko" }
+      ] } }
+  ]
+};
+
+// ========================================================================
+// HELPERS
+// ========================================================================
+function setStatus(isLive, text) {
+  const badge = document.querySelector(SELECTORS.statusBadge);
+  const dot = document.querySelector(SELECTORS.statusDot);
+  const label = document.querySelector(SELECTORS.statusText);
+  badge?.classList.remove("hidden");
+  if (label) label.textContent = text;
+  if (dot) dot.className = "w-2 h-2 rounded-full " + (isLive ? "bg-emerald-500" : "bg-amber-500");
+}
+
+function parseTxcr(v) {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  if (!s || s === "*") return null;
+  const n = parseFloat(s.replace(",", "."));
+  return isNaN(n) ? null : n;
+}
+
+function parseFrDate(s) {
+  let m = String(s || "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+  m = String(s || "").match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  return null;
+}
+
+function varBase(v) { return String(v || "").split("(")[0].trim(); }
+
+// ========================================================================
+// CHARGEMENT DES DONNEES
+// ========================================================================
+async function loadData(strict) {
+  if (!CONFIG.API_URL.startsWith("http")) {
+    if (strict) throw new Error("API_URL non configurée");
+    console.warn("API_URL non configurée — mode démo");
+    setStatus(false, "Mode démo (données fictives)");
+    return MOCK_GEOJSON;
+  }
+  try {
+    const res = await fetch(CONFIG.API_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const geo = await res.json();
+    if (geo.error) throw new Error(geo.error);
+    if (!geo.features || !geo.features.length) throw new Error("Aucune donnée renvoyée");
+    if (geo.excluded && geo.excluded.length)
+      console.warn("Sites ignorés (absents du GeoJSON) :", geo.excluded.join(", "));
+    setStatus(true, "Live data...");
+    return geo;
+  } catch (err) {
+    if (strict) throw err;
+    console.warn("API indisponible, mode démo :", err.message);
+    setStatus(false, "Mode démo (données fictives)");
+    return MOCK_GEOJSON;
+  }
+}
+
+function ingest(geo) {
+  STATE.geoJsonPoints = geo;
+  STATE.sitesData = {};
+  geo.features.forEach(f => {
+    const p = f.properties;
+    p.sgrMoyen = computeSgrMoyen(p.rows || []);
+    STATE.sitesData[p.site_id] = p;
+  });
+}
+
+// ========================================================================
+// CALCULS — SGR CUMULÉS
+// ========================================================================
+function computeSgrMoyen(rows) {
+  const byLine = {};
+  rows.forEach(r => (byLine[r.ligne_test] = byLine[r.ligne_test] || []).push(r));
+  const lasts = [];
+  Object.values(byLine).forEach(rs => {
+    const sorted = rs.slice().sort((a, b) =>
+      (parseFrDate(a.date_pesage)?.getTime() || 0) - (parseFrDate(b.date_pesage)?.getTime() || 0));
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const v = parseTxcr(sorted[i].txcr_calc);
+      if (v !== null) { lasts.push(v); break; }
+    }
+  });
+  if (!lasts.length) return null;
+  return lasts.reduce((a, b) => a + b, 0) / lasts.length;
+}
+
+// ========================================================================
+// STEPPER DE CYCLE - Progression dynamique de P0 à PR
+// ========================================================================
+const CYCLE_STAGES = [0, 1, 2, 3, 4, "PR"];
+
+function cycleStepperHtml(stepper) {
+  if (!stepper) return "";
+  const pill = st => {
+    const label = st === "PR" ? "PR" : "P" + st;
+    const reached = stepper.reached.includes(st);
+    const current = stepper.current === st;
+    const cls = "cycle-step " + (current ? "current" : reached ? "reached" : "future");
+    return `<span class="${cls}">${label}</span>`;
+  };
+  return `<div class="cycle-stepper">` +
+    CYCLE_STAGES.map((s, i) =>
+      (i ? `<span class="cycle-link">—</span>` : "") + pill(s)
+    ).join("") +
+    `</div>`;
+}
+
+// Une seule RANGÉE par ligne : la DERNIÈRE pesée (remplacée dynamiquement)
+function buildLineTables(rows) {
+  const byLine = rows.reduce((acc, row) => {
+    (acc[row.ligne_test] = acc[row.ligne_test] || []).push(row);
+    return acc;
+  }, {});
+
+  const lineNames = Object.keys(byLine)
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+  return lineNames.map(lineName => {
+    const sorted = byLine[lineName].slice().sort((a, b) =>
+      (parseFrDate(a.date_pesage)?.getTime() || 0) - (parseFrDate(b.date_pesage)?.getTime() || 0));
+
+    const last = sorted[sorted.length - 1];
+    const prev = sorted.length > 1 ? sorted[sorted.length - 2] : null;
+    const p0 = sorted[0];
+    const nb = last.nb != null ? parseInt(last.nb, 10) : null;
+    const prevNb = prev && prev.nb != null ? parseInt(prev.nb, 10) : null;
+
+    // Progression du cycle : quelles étapes P0..P4/PR sont atteintes ?
+    const reached = [];
+    sorted.forEach(r => {
+      const lab = String(r.pesage || "").trim().toUpperCase();
+      const mNum = lab.match(/^P(\d+)/);
+      if (mNum) {
+        const st = +mNum[1];
+        if (!reached.includes(st)) reached.push(st);
+      } else if (lab.startsWith("PR")) {
+        if (!reached.includes("PR")) reached.push("PR");
+      }
+    });
+    const lastLab = String(last.pesage || "").trim().toUpperCase();
+    const lastNum = lastLab.match(/^P(\d+)/);
+    const current = lastNum ? +lastNum[1] : (lastLab.startsWith("PR") ? "PR" : null);
+
+    return {
+      lineName,
+      planteLe: p0 ? p0.date_pesage : null,
+      zone: (last.zone || "").trim(),
+      stepper: { reached: reached, current: current },
+      pesees: [{
+        pesage: last.pesage,
+        date: last.date_pesage,
+        depuisP0: last.duree ? `${last.duree} j` : "—",
+        boutures: (nb != null && !isNaN(nb)) ? String(nb) : "—",
+        perte: prevNb != null && nb != null && !isNaN(nb) && nb < prevNb,
+        sgr: last.txcr_calc
+      }]
+    };
+  });
+}
+
+// ========================================================================
+// COULEURS
+// ========================================================================
+function getColorForSgr(value) {
+  return COLORS[statutKey(value)];
+}
+
+function getColorClassForSgr(value) {
+  if (parseTxcr(value) === null) return "text-slate-400";
+  return `${getColorForSgr(value).text} font-semibold`;
+}
+
+// ========================================================================
+// CARTE
+// ========================================================================
+function initMap() {
+
+  STATE.map = L.map(document.querySelector(SELECTORS.map), { zoomControl: false })
+    .setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM);
+
+  L.tileLayer(CONFIG.TILE_URL, { attribution: CONFIG.TILE_ATTR, maxZoom: 19 }).addTo(STATE.map);
+
+  L.control.zoom({ position: "topright" }).addTo(STATE.map);
+  STATE.markersLayerGroup = L.layerGroup().addTo(STATE.map);
+}
+
+function renderMarkers(sitesToShow) {
+  STATE.markersLayerGroup.clearLayers();
+  STATE.markers = {};
+  if (!STATE.geoJsonPoints) return;
+  const bounds = [];
+
+  STATE.geoJsonPoints.features.forEach(feature => {
+    const siteId = feature.properties.site_id;
+    const site = STATE.sitesData[siteId];
+    if (!site) return;
+    if (sitesToShow && !sitesToShow.has(siteId)) return;
+
+    const [lng, lat] = feature.geometry.coordinates;
+    const color = getColorForSgr(site.sgrMoyen);
+
+    const icon = L.divIcon({
+      className: "",
+      html: `<div class="site-marker" style="width:38px;height:38px;background-color:${color.hex};color:${color.txt}">${siteId}</div>`,
+      iconSize: [38, 38],
+      iconAnchor: [19, 19]
+    });
+
+    const marker = L.marker([lat, lng], { icon }).addTo(STATE.markersLayerGroup);
+    marker.on("click", () => openSidebar(siteId));
+    STATE.markers[siteId] = marker;
+    bounds.push([lat, lng]);
+  });
+
+  if (bounds.length > 0 && !STATE.hasInitialFit) {
+    STATE.map.fitBounds(bounds, { padding: CONFIG.MAP_BOUNDS_PADDING });
+    STATE.hasInitialFit = true;
+  }
+}
+
+// ========================================================================
+// SIDEBAR — filtre par zone
+// ========================================================================
+function openSidebar(siteId) {
+  const site = STATE.sitesData[siteId];
+  if (!site) return;
+  STATE.currentSiteId = siteId;
+  STATE.panelZone = null;
+
+  const $title = document.querySelector(SELECTORS.sidebarTitle);
+  const $tehake = document.querySelector(SELECTORS.sidebarTehake);
+  const $tche = document.querySelector(SELECTORS.sidebarTche);
+  const $sidebar = document.querySelector(SELECTORS.sidebar);
+  const $overlay = document.querySelector(SELECTORS.sidebarOverlay);
+
+  if ($title) $title.textContent = `${site.code_site} — ${site.site_nom}`;
+  if ($tehake) $tehake.textContent = `Tehake : ${site.tehake || "—"} | Secteur : ${site.secteur || "—"}`;
+  if ($tche) $tche.textContent = `Technicien (TCHE) : ${site.tche || "—"}`;
+
+  renderPanelZoneFilter(site);
+  renderPanelLines(site);
+
+  $sidebar?.classList.remove("translate-x-full");
+  $overlay?.classList.remove("hidden");
+}
+
+// Zones présentes sur le site
+function panelZonesOf(site) {
+  const zones = new Set();
+  site.rows.forEach(r => { const z = (r.zone || "").trim(); if (z) zones.add(z); });
+  return [...zones].sort();
+}
+
+// Dropdown de zone 
+function renderPanelZoneFilter(site) {
+  const $zf = document.querySelector(SELECTORS.sidebarZoneFilter);
+  if (!$zf) return;
+  const zones = panelZonesOf(site);
+  if (zones.length < 2) { $zf.innerHTML = ""; return; }
+  $zf.innerHTML = `
+    <label class="inline-flex items-center gap-1.5 text-[11px] text-slate-500">
+      Zone de culture
+      <select id="panelZoneSelect" class="bg-slate-50 border border-slate-300 rounded-lg py-1 px-2 text-xs text-slate-900">
+        <option value="all">Toutes</option>
+        ${zones.map(z => `<option value="${z}" ${STATE.panelZone === z ? "selected" : ""}>${z}</option>`).join("")}
+      </select>
+    </label>`;
+  $zf.querySelector("#panelZoneSelect").addEventListener("change", e => {
+    STATE.panelZone = e.target.value === "all" ? null : e.target.value;
+    renderPanelLines(site);
+  });
+}
+
+// Rendu du panneau : TOUT se recalcule selon le filtre zone
+// (badge site avec label dynamique, badges variétés, cartes des lignes)
+function renderPanelLines(site) {
+  const $badge = document.querySelector(SELECTORS.sidebarBadge);
+  const $sgrLabel = document.querySelector(SELECTORS.sidebarSgrLabel);
+  const $varBadges = document.querySelector(SELECTORS.sidebarVarBadges);
+  const $body = document.querySelector(SELECTORS.sidebarBody);
+  if (!$body) return;
+  $body.innerHTML = "";
+
+  // Lignes du périmètre sélectionné (zone filtrée ou site entier)
+  const rows = STATE.panelZone
+    ? site.rows.filter(r => (r.zone || "").trim() === STATE.panelZone)
+    : site.rows;
+
+  // ---- Badge « SGR moyen » : recalculé sur le périmètre affiché
+  const sgrP = computeSgrMoyen(rows);
+  if ($badge) {
+    const color = getColorForSgr(sgrP);
+    $badge.textContent = sgrP === null
+      ? "En attente"
+      : `${sgrP > 0 ? "+" : ""}${sgrP.toFixed(2)} %/j`;
+    $badge.className = `text-sm font-bold px-2.5 py-1 rounded-full ${color.tw} ${color.txt === "#ffffff" ? "text-white" : "text-slate-900"}`;
+    if ($sgrLabel) $sgrLabel.textContent = STATE.panelZone
+      ? `SGR moyen — ${STATE.panelZone}`
+      : "SGR moyen du site";
+  }
+
+  // ---- Badges variétés : recalculés sur le périmètre affiché
+  if ($varBadges) {
+    const byVar = {};
+    rows.forEach(r => {
+      const v = varBase(r.variete) || "—";
+      (byVar[v] = byVar[v] || []).push(r);
+    });
+    $varBadges.innerHTML = Object.entries(byVar).map(([v, rs]) => {
+      const m = computeSgrMoyen(rs);
+      const c = getColorForSgr(m);
+      return `<span class="text-xs font-bold px-3 py-1 rounded-full ${c.tw} ${c.txt === "#ffffff" ? "text-white" : "text-slate-900"}" title="SGR moyen — ${v}">${v} <span class="ml-1">${m === null ? "*" : (m > 0 ? "+" : "") + m.toFixed(2)}</span></span>`;
+    }).join("");
+  }
+
+  // ---- Cartes des lignes
+  const lineTables = buildLineTables(rows);
+  if (!lineTables.length) {
+    $body.innerHTML = `<p class="text-sm text-slate-500 italic">Aucune ligne dans cette zone de culture.</p>`;
+    return;
+  }
+
+  lineTables.forEach(lt => {
+    const card = document.createElement("div");
+    card.className = "bg-slate-50 border border-slate-200 rounded-xl p-4";
+
+    const rowsHtml = lt.pesees.map(pe => `
+        <tr class="border-t border-slate-200">
+          <td class="py-2 pr-2 text-slate-700 text-xs font-semibold">${pe.pesage}</td>
+          <td class="py-2 pr-2 text-slate-500 text-xs">${pe.date}</td>
+          <td class="py-2 pr-2 text-slate-500 text-xs">${pe.depuisP0}</td>
+          <td class="py-2 pr-2 text-xs ${pe.perte ? "text-amber-600" : "text-slate-500"}">${pe.boutures}${pe.perte ? " ↓" : ""}</td>
+          <td class="py-2 text-xs ${getColorClassForSgr(pe.sgr)}">${pe.sgr === "*" ? "—" : pe.sgr}</td>
+        </tr>`).join("");
+
+    card.innerHTML = `
+      <h3 class="text-cyan-600 font-semibold text-sm mb-0.5 tracking-wide">${lt.lineName}${lt.zone ? `<span class="ml-1.5 align-middle text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-500">${lt.zone}</span>` : ""}</h3>
+      ${lt.planteLe ? `<p class="text-[11px] text-slate-400 mb-1">Planté le ${lt.planteLe}</p>` : `<p class="mb-1"></p>`}
+      ${cycleStepperHtml(lt.stepper)}
+      <table class="interval-table text-left mt-2">
+        <colgroup><col style="width:16%"><col style="width:28%"><col style="width:18%"><col style="width:16%"><col style="width:22%"></colgroup>
+        <thead>
+          <tr class="text-[10px] uppercase text-slate-500 tracking-wide">
+            <th class="pb-1.5 font-medium">Pesée</th>
+            <th class="pb-1.5 font-medium">Date</th>
+            <th class="pb-1.5 font-medium">P0</th>
+            <th class="pb-1.5 font-medium">Bout.</th>
+            <th class="pb-1.5 font-medium">SGR</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>`;
+    $body.appendChild(card);
+  });
+}
+
+function closeSidebar() {
+  document.querySelector(SELECTORS.sidebar)?.classList.add("translate-x-full");
+  document.querySelector(SELECTORS.sidebarOverlay)?.classList.add("hidden");
+}
+
+document.querySelector(SELECTORS.closeSidebarBtn)?.addEventListener("click", closeSidebar);
+document.querySelector(SELECTORS.sidebarOverlay)?.addEventListener("click", closeSidebar);
+
+// ========================================================================
+// RECHERCHE AVEC AUTOCOMPLÉTION (sites + secteurs) + ZOOM
+// ========================================================================
+function buildSuggestions(query) {
+  const q = query.toLowerCase().trim();
+  if (!q) return [];
+  const all = Object.values(STATE.sitesData);
+
+  const siteMatches = all
+    .filter(s => `${s.code_site} ${s.site_nom} ${s.tche}`.toLowerCase().includes(q))
+    .sort((a, b) => a.code_site.localeCompare(b.code_site))
+    .slice(0, 8)
+    .map(s => ({
+      type: "site", siteId: s.code_site,
+      label: `${s.code_site} — ${s.site_nom}`,
+      sub: `Secteur ${s.secteur || "—"}${s.tche ? " · " + s.tche : ""}`
+    }));
+
+  const bySec = {};
+  all.forEach(s => (bySec[s.secteur || "—"] = (bySec[s.secteur || "—"] || 0) + 1));
+  const secMatches = Object.keys(bySec)
+    .filter(sec => sec.toLowerCase().includes(q))
+    .sort()
+    .map(sec => ({ type: "secteur", secteur: sec, label: `Secteur ${sec}`, sub: `${bySec[sec]} site(s)` }));
+
+  return [...siteMatches, ...secMatches].slice(0, 10);
+}
+
+function renderResults(items) {
+  const $r = document.querySelector(SELECTORS.searchResults);
+  STATE.searchItems = items;
+  STATE.searchActive = 0;
+  if (!items.length) {
+    $r.innerHTML = `<p class="px-3 py-2.5 text-xs text-slate-400 italic">Aucun résultat</p>`;
+  } else {
+    $r.innerHTML = items.map((it, i) => `
+      <button type="button" data-idx="${i}"
+        class="search-item w-full text-left px-3 py-2 flex items-center gap-2.5 hover:bg-emerald-50 transition ${i === 0 ? "bg-emerald-50/60" : ""}">
+        <span class="shrink-0">${it.type === "site" ? "📍" : "🗺️"}</span>
+        <span class="flex-1 min-w-0">
+          <span class="block text-xs font-semibold text-slate-800 truncate">${it.label}</span>
+          <span class="block text-[10px] text-slate-400 truncate">${it.sub}</span>
+        </span>
+      </button>`).join("");
+  }
+  $r.classList.remove("hidden");
+}
+
+function hideResults() {
+  document.querySelector(SELECTORS.searchResults)?.classList.add("hidden");
+}
+
+function highlightResults() {
+  document.querySelectorAll("#searchResults .search-item").forEach((el, i) => {
+    el.classList.toggle("bg-emerald-50", i === STATE.searchActive);
+  });
+  const active = document.querySelectorAll("#searchResults .search-item")[STATE.searchActive];
+  active?.scrollIntoView({ block: "nearest" });
+}
+
+function chooseItem(it) {
+  hideResults();
+  document.querySelector(SELECTORS.searchInput).value = "";
+  if (!it) return;
+  if (it.type === "site") zoomToSite(it.siteId);
+  else zoomToSecteur(it.secteur);
+}
+
+function zoomToSite(siteId) {
+  const f = STATE.geoJsonPoints.features.find(x => x.properties.site_id === siteId);
+  if (!f) return;
+  const [lng, lat] = f.geometry.coordinates;
+  STATE.map.setView([lat, lng], Math.max(STATE.map.getZoom(), CONFIG.ZOOM_SITE));
+  openSidebar(siteId);
+}
+
+function zoomToSecteur(sec) {
+  const pts = [];
+  STATE.geoJsonPoints.features.forEach(f => {
+    if ((f.properties.secteur || "—") === sec) pts.push(f.geometry.coordinates);
+  });
+  if (!pts.length) return;
+  STATE.map.fitBounds(L.latLngBounds(pts.map(c => [c[1], c[0]])), { padding: CONFIG.MAP_BOUNDS_PADDING, maxZoom: CONFIG.ZOOM_SITE });
+}
+
+(function initSearch() {
+  const $input = document.querySelector(SELECTORS.searchInput);
+  const $results = document.querySelector(SELECTORS.searchResults);
+  if (!$input || !$results) return;
+
+  $input.addEventListener("input", () => {
+    const q = $input.value.trim();
+    if (!q) { hideResults(); return; }
+    renderResults(buildSuggestions(q));
+  });
+
+  $input.addEventListener("keydown", e => {
+    if ($results.classList.contains("hidden")) return;
+    const items = STATE.searchItems || [];
+    if (!items.length) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      STATE.searchActive = (STATE.searchActive + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length;
+      highlightResults();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      chooseItem(items[STATE.searchActive] || items[0]);
+    } else if (e.key === "Escape") {
+      hideResults();
+    }
+  });
+
+  $results.addEventListener("click", e => {
+    const btn = e.target.closest(".search-item");
+    if (!btn) return;
+    chooseItem(STATE.searchItems[+btn.dataset.idx]);
+  });
+
+  document.addEventListener("click", e => {
+    if (!e.target.closest("#searchWrap")) hideResults();
+  });
+})();
+
+// ========================================================================
+// FILTRE SGR
+// ========================================================================
+function applyFilters() {
+  const sgrFilterVal = document.querySelector(SELECTORS.sgrFilter)?.value || "all";
+  const visible = new Set();
+
+  Object.values(STATE.sitesData).forEach(site => {
+    let matches = true;
+    const sgr = site.sgrMoyen;
+    if (sgrFilterVal === "positive" && !(sgr !== null && sgr > 0)) matches = false;
+    if (sgrFilterVal === "negative" && !(sgr !== null && sgr < 0)) matches = false;
+    if (matches) visible.add(site.code_site);
+  });
+
+  renderMarkers(visible);
+}
+
+document.querySelector(SELECTORS.sgrFilter)?.addEventListener("change", applyFilters);
+
+// ========================================================================
+// BOOTSTRAP + RAFRAICHISSEMENT AUTO (5 min)
+// ========================================================================
+async function bootstrap() {
+  initMap();
+  ingest(await loadData(false));
+  renderMarkers(null);
+}
+
+bootstrap();
+
+setInterval(async () => {
+  if (!CONFIG.API_URL.includes("script.google.com")) return;
+  try {
+    ingest(await loadData(true));
+    applyFilters();
+  } catch (e) { console.warn("Rafraîchissement échoué :", e.message); }
+}, CONFIG.REFRESH_MS);
+</script>
+</body>
+</html>

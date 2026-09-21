@@ -1,0 +1,40 @@
+/* ============================================================
+   AlgoTrack — Dashboard (styles)
+   ============================================================ */
+
+/* ---- Base ---- */
+html, body {
+  margin: 0;
+  background: #f1f5f9;
+}
+
+/* ---- Scrollbars ---- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #e2e8f0; }
+::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+
+/* ---- Panneaux (cartes blanches) ---- */
+.panel {
+  background: rgba(255, 255, 255, .95);
+  border: 1px solid #e2e8f0;
+  border-radius: .75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+}
+
+/* ---- Valeurs des KPI ---- */
+.kpi-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+/* ---- Boutons d'export PNG (graphiques) ---- */
+.png-btn {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}
+.png-btn:hover { color: #059669; border-color: #a7f3d0; }
