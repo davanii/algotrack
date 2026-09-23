@@ -1199,6 +1199,8 @@ function renderAll() {
   const recoltes = computeRecoltes(geo);
   const corr = pearson(sites.filter(s => s.sgr !== null && s.prevSante !== null).map(s => [s.prevSante * 100, s.sgr]));
 
+  dernierSites = sites;
+  
   renderKpis(sites, sgrGlobal, survieGlob, bioTot, bioDelta, prevIceGlob, sitesNeg, completude, hasPoids, hasIce, recoltes);
   renderAlerts(sitesNeg, sitesRetard, sitesSante);
   renderCharts(sites, geo, statuts, opts);
